@@ -28,11 +28,12 @@ jobs:
         run: cd exact && bun install --frozen-lockfile
       - name: Rust targets + Exact workspace fetch
         run: |
-          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          rustup toolchain install 1.97.0 --profile minimal
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim --toolchain 1.97.0
           cargo fetch --locked --manifest-path exact/Cargo.toml
-      - name: Hermes bundles (both Mac targets)
+      - name: Hermes bundles (Mac + iOS targets)
         run: |
-          for t in aarch64-apple-darwin x86_64-apple-darwin; do
+          for t in aarch64-apple-darwin x86_64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim; do
             cargo run --locked --manifest-path exact/vendor/ibex/crates/hermes-lean-sys-installer/Cargo.toml -- --target $t
           done
       - name: Build macOS app
@@ -148,8 +149,11 @@ jobs:
         run: cd exact && bun install --frozen-lockfile
       - name: Rust target + Exact workspace fetch
         run: |
-          rustup target add aarch64-linux-android
+          rustup toolchain install 1.97.0 --profile minimal
+          rustup target add aarch64-linux-android --toolchain 1.97.0
           cargo fetch --locked --manifest-path exact/Cargo.toml
+      - name: NDK (gradle builds against it)
+        run: "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" > /dev/null
       - name: Hermes bundle (android)
         run: cargo run --locked --manifest-path exact/vendor/ibex/crates/hermes-lean-sys-installer/Cargo.toml -- --target aarch64-linux-android
       - name: Build APK
