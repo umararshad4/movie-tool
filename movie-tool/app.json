@@ -1,0 +1,26 @@
+{
+  "$schema": "../exact/scripts/app.schema.json",
+  "name": "Movie Tool",
+  "short_name": "Movie Tool",
+  "id": "com.example.movie-tool-0c2213",
+  "start_url": "/",
+  "display": "standalone",
+  "app": {
+    "id": "com.example.movie-tool-0c2213",
+    "name": "Movie Tool"
+  },
+  "host": {
+    "web": {}
+  },
+  "commands": {
+    "server": ["python3", "../service/server.py"]
+  },
+  "server": {
+    "database": false
+  },
+  "deploy": {
+    "store": {
+      "web": "0"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+# Movie Tool plan
+Goal: paste a movie URL, select quality, download without repeated manual tabs.
+Approach: HOLD; local Exact UI and local resolver service. No accounts or hosted service.
+File map: movie-tool/app.contract (UI), app.ts (adapter), app.json (server wiring), service/server.py (discovery + resolver + downloader), service/test_server.py (parser and URL checks), docs/pipeline.md (verified chain), run.sh (launcher).
+1. Discover qualities: DONE. Five labelled options extracted live (Monstrous 2020, archives 161095–161099); parser covered by 13 passing unit tests.
+2. Resolve selected host to final media: DONE. Full chain reversed and verified live — the 403 earlier was a missing Referer; the 4-hop LP chain replays forms/redirects server-side, then driveseed /r → /file → Instant Download anchor (cdn.video-gen.xyz) → 302 → video-seed.dev → signed googleusercontent URL. Driveseed's login-gated generate() API deliberately bypassed. No JS executed upstream. Cached 20 min (signed URLs are time-limited; sid tokens single-use).
+3. Download with progress: DONE. Background job threads stream to ~/Downloads with collision suffix "(1)"; .part file discarded on failure since upstream ignores Range (no resume); /progress polled every 1 s by the UI. Proven live: 280 MB 720p MKV downloaded twice, both valid (EBML header, ffprobe 5165 s), progress observed 1 % → 53 % → 100 %.
+4. Verify Exact UI: DONE for web. `bun exact.mjs verify web` clean (2 tests, 0 findings) after repairing the 1.97.0 rustup toolchain and installing Playwright chromium-headless-shell. Live UI run confirmed: resolve from the input box and per-quality download with progress bar. Native (ios/mac/android) NOT verified — machine lacks Xcode/iOS/Android SDKs; web app is the deliverable.
+5. Ship: DONE. README rewritten, run.sh launcher added, research fixtures kept for parser tests.

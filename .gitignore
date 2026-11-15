@@ -1,0 +1,14 @@
+# The Exact SDK checkout (7.6 GB, cloned separately — see README)
+/exact/
+
+# Build artifacts
+/movie-tool/target/
+/movie-tool/dist/
+/movie-tool/.exact/
+
+# Python caches
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store

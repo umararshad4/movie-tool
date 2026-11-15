@@ -1,0 +1,123 @@
+use Badge, EmptyState from "exact:content"
+
+shape Option
+  id: string
+  label: string
+  filename: string
+  size: string
+  quality: string
+  tier: number
+  state: number
+  url: string
+  note: string
+  error: string
+
+shape Reply
+  items: Option[]
+  error: string
+
+shape Job
+  id: string
+  label: string
+  filename: string
+  state: string
+  pct: number
+  error: string
+  path: string
+
+shape Jobs
+  jobs: Job[]
+  error: string
+
+shape Started
+  ok: bool
+  error: string
+
+routes nav
+  home "/"
+
+component MovieTool
+  state draft = ""
+  state view = ""
+  resource resolved = resolve(view) when view != "" as shape Reply else empty()
+  resource jobs = jobList() as shape Jobs else empty()
+  mutation dl as shape Started queue refreshes jobs
+  task poll when view != "" key=view
+    every(1000, tick)
+  action edit(v: string)
+    draft = v
+  action go
+    view = draft
+    refresh resolved
+  action tick
+    refresh jobs
+  action start(id: string)
+    send dl = download(view, id)
+  derive items = resolved.items
+  derive resolveError = resolved.error
+  derive resolveBanner = match failure(resolved) { case some(f) => (f.code == "offline" ? "Can't reach the local service. Start it with: python3 service/server.py" : "Could not read that page. Check the URL and try again."), case none => "" }
+  derive hasResults = items.length > 0
+  view
+    main testId="root" height="100%"
+      scroll height="100%"
+        column padding=24 gap=16 max-width="52rem" margin-left="auto" margin-right="auto"
+          text "Movie Tool" role="heading" aria-level=1
+          text "Paste a MoviesMod or UHDMovies (4K) page. Qualities come back best first; files save to ~/Downloads." color="-exact-secondary-label"
+          column gap=8
+            input value=draft input=edit submit=go placeholder="https://moviesmod.tw/… or https://uhdmovies.…/" aria-label="Movie page URL" testId="url"
+            row gap=8 align-items="center"
+              button press=go disabled=(draft.trim() == "" or pending(resolved)) buttonStyle="filled" testId="resolve"
+                text (pending(resolved) ? "Finding…" : "Find qualities")
+              if pending(resolved)
+                progress aria-label="Finding qualities" testId="resolving"
+          if failed(resolved)
+            column gap=8 testId="failed"
+              column testId="error"
+                EmptyState(symbol="symbol:alert", title="Can't Load Qualities", message=resolveBanner)
+                  button press=go testId="retry-resolve"
+                    text "Try Again"
+          if resolveError != ""
+            text resolveError role="alert" color="-exact-system-red" testId="resolveError"
+          if not failed(resolved) and pending(resolved)
+            EmptyState(symbol="symbol:magnifyingglass", title="Finding qualities…", message="Reading the page and its link hosts. This takes up to a minute.")
+          if not failed(resolved) and not pending(resolved) and not hasResults and view != ""
+            EmptyState(symbol="symbol:magnifyingglass", title="No qualities found", message="That page had no supported download links. Try another movie page.")
+          if hasResults
+            section
+              header
+                text `Qualities · ${items.length}` role="heading" aria-level=2
+              for item in items key=item.id
+                column testId=`item-${item.id}` gap=4 padding=12 border-width=1 border-radius=8
+                  row gap=8 align-items="center" flex-wrap="wrap"
+                    Badge(label=(item.quality == "" ? "FILE" : item.quality), tint=(item.tier >= 4 ? some("-exact-system-orange") : none))
+                    text item.label flex=1 min-width=0 testId=`label-${item.id}`
+                  if item.error != ""
+                    text item.error color="-exact-system-red" testId=`itemError-${item.id}`
+                  else if item.state == 1
+                    text item.note color="-exact-secondary-label"
+                    text item.url font="-exact-footnote" color="-exact-secondary-label"
+                  else
+                    column gap=2
+                      if item.filename != ""
+                        text item.filename testId=`filename-${item.id}` color="-exact-secondary-label" font="-exact-footnote"
+                      if item.size != ""
+                        text item.size color="-exact-secondary-label" font="-exact-footnote"
+                      if item.note != ""
+                        text item.note color="-exact-secondary-label" font="-exact-footnote"
+                      button press=start(item.id) disabled=pending(dl) testId=`download-${item.id}`
+                        text (pending(dl) ? "Queued…" : "Download")
+          if jobs.jobs.length > 0
+            section
+              header
+                text "Downloads" role="heading" aria-level=2
+              for job in jobs.jobs key=job.id
+                column testId=`job-${job.id}` gap=4 padding=12 border-width=1 border-radius=8
+                  text job.filename
+                  if job.state == "done"
+                    text "Saved to ~/Downloads" testId=`done-${job.id}` color="-exact-secondary-label"
+                  else if job.state == "error"
+                    text `Failed: ${job.error}` role="alert" color="-exact-system-red" testId=`jobError-${job.id}`
+                  else
+                    column gap=4
+                      progress value=job.pct max=100 aria-label=`Downloading ${job.filename}` testId=`bar-${job.id}`
+                      text `${job.pct}%` testId=`pct-${job.id}` color="-exact-secondary-label" font="-exact-footnote"

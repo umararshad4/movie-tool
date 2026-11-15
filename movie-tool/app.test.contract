@@ -1,0 +1,19 @@
+test "typing a URL fills the draft"
+  expect tree has "root"
+  type "url" "https://moviesmod.tw/example/"
+  expect state draft == "https://moviesmod.tw/example/"
+
+test "find is disabled until a URL is typed"
+  expect disabled "resolve"
+  type "url" "https://moviesmod.tw/example/"
+  expect enabled "resolve"
+
+test "an unreachable service shows the failure, not options"
+  fail fetch "http://127.0.0.1:8787"
+  type "url" "https://moviesmod.tw/example/"
+  tap "resolve"
+  clock data
+  expect tree has "failed"
+  expect tree missing "download-0"
+  reload
+  expect tree missing "failed"
