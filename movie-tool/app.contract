@@ -55,9 +55,10 @@ component MovieTool
     send dl = download(view, id)
   derive items = resolved.items
   derive resolveError = resolved.error
-  // The banner says which half failed: an unreachable service (or a browser
-  // blocking the localhost call) versus the service's own answer about the page.
-  derive resolveBanner = match failure(resolved) { case some(f) => (f.code == "offline" ? "Can't reach the local service from this browser. Start it with: python3 service/server.py — and if it IS running, this browser may be blocking the localhost call (Chrome/Edge allow it; Safari/Firefox may not). Or run everything locally: ./run.sh" : (f.reason != "" ? `Could not read that page: ${f.reason}` : "Could not read that page. Check the URL and try again.")), case none => "" }
+  // The banner says which half failed: when the request never completed
+  // (offline code, or no reason from the service) it is reachability — the
+  // service isn't running, or this browser blocked the localhost call.
+  derive resolveBanner = match failure(resolved) { case some(f) => ((f.code == "offline" or f.reason == "") ? "Can't reach the local service from this browser. Start it with: python3 service/server.py — and if it IS running, this browser may be blocking the localhost call (Chrome/Edge allow it; Safari/Firefox may not). Or run everything locally: ./run.sh" : `Could not read that page: ${f.reason}`), case none => "" }
   derive hasResults = items.length > 0
   view
     main testId="root" height="100%"
