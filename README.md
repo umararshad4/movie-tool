@@ -51,10 +51,23 @@ The verified pipeline (full detail in [`docs/pipeline.md`](docs/pipeline.md)):
 4. **Driveseed**: `/r` → `/file/<id>` (page title is the filename) → its **"Instant Download"** anchor points at `cdn.video-gen.xyz`. The `generate()` API is login-gated ("Session Not Found Please Login!") and is deliberately **not** used.
 5. **Final URL**: cdn → 302 → `video-seed.dev/?url=<signed googleusercontent URL>` → the signed URL serves the actual video (mkv/mp4). The host ignores HTTP `Range`, so there is **no resume**: a broken download restarts from zero (the `.part` file is deleted and a fresh job re-resolves the link, since signed URLs are time-limited — resolved links are cached 20 min).
 
+## Platforms
+
+| Platform | Where | How |
+| --- | --- | --- |
+| **Web** (deployed) | <https://movie-tool.vercel.app> | `bun exact.mjs web-build --out dist` → Vercel |
+| **macOS** `.app` | CI artifact (and releases) | `bun exact.mjs mac --bundle` — needs full Xcode 26+ |
+| **iOS** (simulator) | CI artifact | `bun exact.mjs ios` — needs Xcode; real-device installs via `share` |
+| **Linux** x86-64 | CI artifact (and releases) | `bun exact.mjs linux` — cross-builds from macOS too |
+| **Windows** x86-64 | CI artifact | `bun exact.mjs windows` — needs an MSVC Windows host |
+| **Android** APK | CI artifact | `bun exact.mjs android --no-install` — needs JDK 17 + Android SDK/NDK |
+
+`.github/workflows/build.yml` builds all of them on GitHub Actions: pushes to `main` upload per-platform artifacts; pushing a tag `v*` also publishes them on a GitHub release. Locally this machine has no full Xcode/Android SDK/MSVC, so only `web`, the Linux cross-build, and the contract tests run here; everything else is CI's job. (A native build uses the app's own `app.json` grants, so the desktop/phone apps talk to the local service like the web app does.)
+
 ## Status
 
 - **Web app: done and live-verified.** `bun exact.mjs verify web` is clean; end-to-end on [Monstrous (2020)](https://moviesmod.tw/download-monstrous-2020-english-hindi-480p-720p-1080p/) resolved all 5 qualities (161095–161099) and downloaded the 280 MB 720p MKV twice, both files valid (EBML header, ffprobe duration 5165 s), with progress observed 1 % → 53 % → 100 %.
-- **Native (iOS/macOS/Android): not built.** This machine has no Xcode, iOS SDK, or Android SDK, so `verify ios|mac|android` could not run; the web app is the deliverable. Exact's share-to-phone path is therefore unverified too.
+- **Native (iOS/macOS/Android/Linux/Windows): built on CI.** This machine has no full Xcode, Android SDK, or MSVC, so local native builds can't run; `.github/workflows/build.yml` produces every platform's artifact on GitHub Actions (Linux also cross-builds locally: `bun exact.mjs linux`). Exact's share-to-phone path is therefore unverified locally too.
 
 ## Known limits
 

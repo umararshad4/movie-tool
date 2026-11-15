@@ -10,17 +10,22 @@
     "name": "Movie Tool"
   },
   "host": {
-    "web": {}
+    "web": {},
+    "linux": {}
   },
   "commands": {
-    "server": ["python3", "../service/server.py"]
+    "server": [
+      "python3",
+      "../service/server.py"
+    ]
   },
   "server": {
     "database": false
   },
   "deploy": {
     "store": {
-      "web": "0"
+      "web": "0",
+      "linux": "0"
     }
   }
 }

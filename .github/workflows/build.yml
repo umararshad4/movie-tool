@@ -1,0 +1,161 @@
+name: build
+
+# Builds the app for every platform Exact supports:
+#   mac + ios    on macOS 26 (Xcode 26)
+#   linux        on ubuntu
+#   windows      on windows (MSVC)
+#   android      on ubuntu (Android SDK/NDK)
+# Pushes to main upload artifacts; tags v* also publish a GitHub release.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  macos:
+    name: mac + ios
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone Exact SDK at the pinned revision
+        run: git clone --depth 1 https://github.com/expo/exact.git exact && git -C exact fetch --depth 1 origin 777a416004cb22ec1d79aeef82fc4415e592d2b7 && git -C exact checkout 777a416004cb22ec1d79aeef82fc4415e592d2b7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Rust targets + Exact workspace fetch
+        run: |
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          cargo fetch --locked --manifest-path exact/Cargo.toml
+      - name: Hermes bundles (both Mac targets)
+        run: |
+          for t in aarch64-apple-darwin x86_64-apple-darwin; do
+            cargo run --locked --manifest-path exact/vendor/ibex/crates/hermes-lean-sys-installer/Cargo.toml -- --target $t
+          done
+      - name: Build macOS app
+        run: cd movie-tool && bun exact.mjs mac --bundle
+      - name: Build iOS (simulator)
+        run: cd movie-tool && bun exact.mjs ios
+      - name: Collect artifacts
+        run: |
+          mkdir -p out
+          find movie-tool/target -maxdepth 4 \( -name '*.app' -o -name 'movie-tool-mac*' -o -name 'movie-tool-ios*' \) -exec cp -R {} out/ \; 2>/dev/null || true
+          ls out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: movie-tool-macos-ios
+          path: out/
+      - name: Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/**
+
+  linux:
+    name: linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone Exact SDK at the pinned revision
+        run: git clone --depth 1 https://github.com/expo/exact.git exact && git -C exact fetch --depth 1 origin 777a416004cb22ec1d79aeef82fc4415e592d2b7 && git -C exact checkout 777a416004cb22ec1d79aeef82fc4415e592d2b7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Rust target + Exact workspace fetch
+        run: |
+          rustup target add x86_64-unknown-linux-gnu
+          cargo fetch --locked --manifest-path exact/Cargo.toml
+      - name: Hermes bundle (linux)
+        run: cargo run --locked --manifest-path exact/vendor/ibex/crates/hermes-lean-sys-installer/Cargo.toml -- --target x86_64-unknown-linux-gnu
+      - name: Build Linux host
+        run: cd movie-tool && bun exact.mjs linux
+      - name: Collect artifacts
+        run: |
+          mkdir -p out
+          cp movie-tool/target/host-dev/movie-tool-linux out/ 2>/dev/null || true
+          cp movie-tool/target/host-dev/*.desktop out/ 2>/dev/null || true
+          ls out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: movie-tool-linux
+          path: out/
+      - name: Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/**
+
+  windows:
+    name: windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone Exact SDK at the pinned revision
+        run: git clone --depth 1 https://github.com/expo/exact.git exact && git -C exact fetch --depth 1 origin 777a416004cb22ec1d79aeef82fc4415e592d2b7 && git -C exact checkout 777a416004cb22ec1d79aeef82fc4415e592d2b7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Rust target + Exact workspace fetch
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+          cargo fetch --locked --manifest-path exact/Cargo.toml
+      - name: Hermes bundle (windows)
+        run: cargo run --locked --manifest-path exact/vendor/ibex/crates/hermes-lean-sys-installer/Cargo.toml -- --target x86_64-pc-windows-msvc
+      - name: Build Windows host
+        run: cd movie-tool; bun exact.mjs windows
+      - name: Collect artifacts
+        run: |
+          mkdir out
+          if (Test-Path movie-tool/dist-windows) { Copy-Item movie-tool/dist-windows/* out/ -Recurse -ErrorAction SilentlyContinue }
+          ls out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: movie-tool-windows
+          path: out/
+      - name: Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/**
+
+  android:
+    name: android
+    runs-on: ubuntu-latest
+    continue-on-error: true   # the Android toolchain moves; don't fail the whole build on it
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Accept SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - name: Clone Exact SDK at the pinned revision
+        run: git clone --depth 1 https://github.com/expo/exact.git exact && git -C exact fetch --depth 1 origin 777a416004cb22ec1d79aeef82fc4415e592d2b7 && git -C exact checkout 777a416004cb22ec1d79aeef82fc4415e592d2b7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Rust target + Exact workspace fetch
+        run: |
+          rustup target add aarch64-linux-android
+          cargo fetch --locked --manifest-path exact/Cargo.toml
+      - name: Hermes bundle (android)
+        run: cargo run --locked --manifest-path exact/vendor/ibex/crates/hermes-lean-sys-installer/Cargo.toml -- --target aarch64-linux-android
+      - name: Build APK
+        run: cd movie-tool && bun exact.mjs android --no-install
+      - name: Collect artifacts
+        run: |
+          mkdir -p out
+          find movie-tool -path '*build/outputs/apk*' -name '*.apk' -exec cp {} out/ \; 2>/dev/null || true
+          ls out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: movie-tool-android
+          path: out/
+      - name: Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/**
