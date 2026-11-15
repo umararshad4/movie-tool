@@ -153,7 +153,7 @@ jobs:
           rustup target add aarch64-linux-android --toolchain 1.97.0
           cargo fetch --locked --manifest-path exact/Cargo.toml
       - name: NDK (gradle builds against it)
-        run: "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" > /dev/null
+        run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.2.12479018" > /dev/null
       - name: Hermes bundle (android)
         run: cargo run --locked --manifest-path exact/vendor/ibex/crates/hermes-lean-sys-installer/Cargo.toml -- --target aarch64-linux-android
       - name: Build APK
